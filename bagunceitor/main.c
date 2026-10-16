@@ -9,6 +9,7 @@ Para executar de dentro do VS Code:
 
 Executar normalmente: CTRL+F5 (Run -> Run Without Debugging)
 Debugar: F5 (Run -> Start Debugging)
+Usando o CTRL+F5, para que o programa execute normalmente, a imagem que se deseja criptografar deve ser nomeada como original.jpg
 
 Pelo terminal:
 
@@ -28,8 +29,8 @@ Para executar:
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STBI_FAILURE_USERMSG
-#include "stb_image.h"
-#include "stb_image_write.h"
+#include <stb_image.h>
+#include <stb_image_write.h>
 
 // Um pixel Pixel (24 bits)
 typedef struct {
@@ -97,25 +98,38 @@ int main(int argc, char* argv[]) {
   */
 
   // Definição das chaves
-  Pixel chave = {0xA5, 0x3C, 0x7E};
-  int a = 7919;
-  while (mdc(a, tam) != 1) {
-    a++;
+  Pixel imagemChave = {0xA5, 0x3C, 0x7E};
+  int numChave = 7919;
+  while (mdc(numChave, tam) != 1) {
+    numChave++;
   }
 
-  Pixel* temp = malloc(tam * sizeof(Pixel)); 
-  confusao(in.height, in.width, pin, pout, chave);
-  difusao(pout, temp, tam, a);
-  desdifusao(temp, pout, tam, a);
-  desconfusao(in.height, in.width, pout, pout, chave);
+  Pixel* temp = malloc(tam * sizeof(Pixel));                                // Criação de uma imagem temporária para não perder 
+                                                                            // informação na difusão
+  confusao(in.height, in.width, pin, pout, imagemChave);
+  stbi_write_png("confusao.png", out.width, out.height, 3, pout, 0);        // Etapa 1: Confusão (C)
 
-  printf("Recuperou a memoria original? %s\n", memcmp(pin, pout, tam * sizeof(Pixel)) == 0 ? "SIM" : "NAO");
+  difusao(out.pixels, temp, tam, numChave);
+  stbi_write_png("criptografada.png", out.width, out.height, 3, temp, 0);   // Salvando a imagem criptografada (C + D)
+
+  desdifusao(temp, out.pixels, tam, numChave);
+  stbi_write_png("desdifusao.png", out.width, out.height, 3, pout, 0);      // Etapa 3: Desdifusão (D^-1)
+
+  desconfusao(in.height, in.width, pout, pout, imagemChave);                // Voltando à imagem original (D^-1 + C^-1)
 
   // Grava a imagem como PNG para registro
   stbi_write_png("saida.png", out.width, out.height, 3, pout, 0);
 
+  printf("Recuperou a memoria original? ");
+  if (memcmp(pin, pout, tam * sizeof(Pixel)) == 0) {
+    printf("SIM\n");
+  } else {
+    printf("NAO\n");
+  }
+
   free(in.pixels);
   free(out.pixels);
+  free(temp);
 }
 
 void load(char* name, Img* pic) {
@@ -136,13 +150,13 @@ void load(char* name, Img* pic) {
   }
 }
 
-// Calcula o MDC entre dois valores, para garantir que a e n sejam coprimos na função de difusão
+// Encontra o MDC entre dois valores pelo Algoritmo de Euclides, para garantir que a e n sejam coprimos na função de difusão
 int mdc(int a, int b)
 {
   while(b) {
-    int t = a % b;
+    int resto = a % b;
     a = b;
-    b = t;
+    b = resto;
   }
   return a;
 }
@@ -163,7 +177,8 @@ void confusao(int altura, int largura, Pixel in[altura][largura], Pixel out[altu
 void difusao(Pixel* in, Pixel* out, int n, int a)
 {
   for (int i = 0; i < n; i++){
-    out[(long long)i * a % n] = in[i];
+    // Cast para (long long) pois a multiplicação i * a pode dar um resultado muito grande, estourando o limite de int
+    *(out + (long long)i * a % n) = *(in + i);
   }
 }
 
@@ -183,6 +198,6 @@ void desconfusao(int altura, int largura, Pixel in[altura][largura], Pixel out[a
 void desdifusao(Pixel* in, Pixel* out, int n, int a)
 {
   for (int i = 0; i < n; i++){
-    out[i] = in[(long long)i * a % n];
+    *(out + i) = *(in + (long long)i * a % n);
   }
 }
