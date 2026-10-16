@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
   */
 
   // Definição das chaves
-  Pixel imagemChave = {0xA5, 0x3C, 0x7E};
+  Pixel pixelChave = {0xA5, 0x3C, 0x7E};
   int numChave = 7919;
   while (mdc(numChave, tam) != 1) {
     numChave++;
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 
   Pixel* temp = malloc(tam * sizeof(Pixel));                                // Criação de uma imagem temporária para não perder 
                                                                             // informação na difusão
-  confusao(in.height, in.width, pin, pout, imagemChave);
+  confusao(in.height, in.width, pin, pout, pixelChave);
   stbi_write_png("confusao.png", out.width, out.height, 3, pout, 0);        // Etapa 1: Confusão (C)
 
   difusao(out.pixels, temp, tam, numChave);
@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
   desdifusao(temp, out.pixels, tam, numChave);
   stbi_write_png("desdifusao.png", out.width, out.height, 3, pout, 0);      // Etapa 3: Desdifusão (D^-1)
 
-  desconfusao(in.height, in.width, pout, pout, imagemChave);                // Voltando à imagem original (D^-1 + C^-1)
+  desconfusao(in.height, in.width, pout, pout, pixelChave);                 // Voltando à imagem original (D^-1 + C^-1)
 
   // Grava a imagem como PNG para registro
   stbi_write_png("saida.png", out.width, out.height, 3, pout, 0);
